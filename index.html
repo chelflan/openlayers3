@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<title>openlays3 demo</title>
+		<script type="text/javascript" src="js/jquery-2.1.0.js"></script>
+		<script type="text/javascript" src="js/ol-debug.js"></script>
+		<link rel="stylesheet" href="css/ol.css" />
+		<style type="text/css">
+			.tool {
+				position: absolute;
+				clear: left;
+				float: left;
+				left: 40%;
+				top: 5%;
+				text-align: center;
+			}
+			
+			#map {
+				height: 600px;
+				width: 100%;
+			}
+			
+			.tooltip {
+				/*common tip*/
+				position: relative;
+				background: rgba(0, 0, 0, 0.5);
+				border-radius: 4px;
+				color: white;
+				padding: 4px 8px;
+				opacity: 0.7;
+				white-space: nowrap;
+			}
+			
+			.tooltip-measure {
+				/*measure with mouse tip*/
+				opacity: 1;
+				font-weight: bold;
+			}
+			
+			.tooltip-static {
+				/*measure result tip*/
+				border-radius: 4px;
+				background-color: #ffcc33;
+				color: black;
+				border: 1px solid white;
+			}
+			
+			.tooltip-measure:before,
+			.tooltip-static:before {
+				border-top: 6px solid rgba(0, 0, 0, 0.5);
+				border-right: 6px solid transparent;
+				border-left: 6px solid transparent;
+				content: "";
+				position: absolute;
+				bottom: -6px;
+				margin-left: -7px;
+				left: 50%;
+			}
+			
+			.tooltip-static:before {
+				border-top-color: #ffcc33;
+			}
+			
+			.fun-sty {
+				height: 80px;
+				width: 80px;
+				color: yellow;
+				font-size: 50px;
+				border: 2px groove red;
+				background-color: black;
+				border-radius: 10px;
+			}
+		</style>
+	</head>
+
+	<body>
+		<div id="map"></div>
+		<div>
+			@zhangqing qq:284369904
+		</div>
+		<div class="tool" id="tool">
+			<button data-index="Point" class="fun-sty">点</button>
+			<button data-index="LineString" class="fun-sty">线</button>
+			<button data-index="Polygon" class="fun-sty">面</button>
+			<button data-index="Circle" class="fun-sty">圆</button>
+			<button data-index="clean" class="fun-sty">清</button>
+		</div>
+		<div id="helptip" class="tooltip">
+
+			<div id="helptip-content"></div>
+		</div>
+		<div id="tooltip-measure" class="tooltip-measure"> </div>
+		<script type="text/javascript">
+			$(document).ready(function() {
+
+				//设置绘制的样式
+				var drawingStyle = new ol.style.Style({
+					fill: new ol.style.Fill({
+						color: 'rgba(255, 0, 0, 0.2)'
+					}),
+					stroke: new ol.style.Stroke({
+						color: '#00ff00',
+						width: 2
+					}),
+					image: new ol.style.Circle({
+						radius: 7,
+						fill: new ol.style.Fill({
+							color: '#ffcc33'
+						})
+					})
+				});
+
+				//drawed feature style
+				var layerStyle = new ol.style.Style({
+					fill: new ol.style.Fill({
+						color: 'rgba(255, 255, 255, 0.2)'
+					}),
+					stroke: new ol.style.Stroke({
+						color: '#ff0000',
+						width: 2
+					}),
+					image: new ol.style.Circle({
+						radius: 7,
+						fill: new ol.style.Fill({
+							color: '#ffcc33'
+						})
+					})
+				});
+
+				//layer for drawed feature
+				var rubberLayer = new ol.layer.Vector({
+					source: new ol.source.Vector({}),
+					style: layerStyle
+				});
+				var map = new ol.Map({
+					// 在默认控件的基础上，再加上其他内置的控件
+					controls: ol.control.defaults().extend([
+						new ol.control.FullScreen(),
+						new ol.control.MousePosition({
+                          
+						}),
+						new ol.control.OverviewMap(),
+						new ol.control.ScaleLine(),
+						new ol.control.ZoomSlider(),
+						new ol.control.ZoomToExtent()
+					]),
+					//设置图层
+					layers: [
+						new ol.layer.Tile({
+							source: new ol.source.OSM()
+						}), rubberLayer
+					],
+					target: 'map',
+					view: new ol.View({
+						center: ol.proj.transform(
+							[104, 30], 'EPSG:4326', 'EPSG:3857'),
+						zoom: 10
+					})
+				});
+
+				document.getElementById("tool").addEventListener("click", function(e) {
+					let opt = e.target.getAttribute("data-index");
+					if(opt == "clean") {
+						rubberLayer.getSource().clear();
+					} else {
+						funcDrawAction(opt);
+					}
+				}, false)
+
+				//measure help tooltip
+				var helptip = $("#helptip")[0];
+				varhelptipContent = $('#helptip-content')[0];
+				var helpOverlay = new ol.Overlay({
+					element: helptip,
+					autoPan: false,
+					autoPanAnimation: {
+						duration: 250
+					},
+					offset: [7, 0]
+				});
+				map.addOverlay(helpOverlay);
+				//measure tooltip with mouse
+				var measuretooltip = $("#tooltip-measure")[0];
+				var measuretooltipOverlay = new ol.Overlay({
+					element: measuretooltip,
+					autoPan: false,
+					autoPanAnimation: {
+						duration: 250
+					},
+					offset: [0, -10],
+					positioning: 'bottom-center'
+				});
+				map.addOverlay(measuretooltipOverlay);
+				//measure result tooltip
+				varmeasureOverlay = null; //move with mouse
+				function createResultOverlay(tip, content, result) {
+					var resulttip = document.createElement('div');
+					resulttip.className = "tooltip-measure";
+					var resultOverlay = new ol.Overlay({
+						element: resulttip,
+						autoPan: false,
+						autoPanAnimation: {
+							duration: 250
+						},
+						offset: [0, -15],
+						positioning: 'bottom-center'
+					});
+					map.addOverlay(resultOverlay);
+					resulttip.innerHTML = result;
+					return resultOverlay;
+				};
+
+				function displayMeasureOverlay(overlay) {
+					var geom = drawingFeatrue.getGeometry();
+					var pos = geom.getLastCoordinate();
+					var result;
+					if(geom instanceof ol.geom.LineString) {
+						result = new Number(geom.getLength() / 1000);
+						result = result.toFixed(2);
+						result = '<p>result:' + result + ' km</p>';
+					} else if(geom instanceof ol.geom.Polygon) {
+						result = new Number(geom.getArea() / 1000000);
+						result = result.toFixed(2);
+						result = '<p>result:' + result + ' km<sup>2</sup></p>';
+					} else if(geom instanceof ol.geom.Circle) {
+						result = '<p>hello circle</p>';
+					} else {
+						result = '<p>hello point</p>';
+					}
+					overlay.getElement().innerHTML = result;
+					overlay.setPosition(pos);
+				};
+				/***********************************/
+				//draw measure geometry
+				var drawingFeatrue = null;
+				var drawAction;
+
+				function funcDrawAction(geoType) {
+					//console.debug("draw " + geoType + " Action.");
+					map.removeInteraction(drawAction);
+					drawAction = new ol.interaction.Draw({
+						source: rubberLayer.getSource(),
+						type: geoType,
+						style: drawingStyle
+					});
+					//drawing handler
+					drawAction.on("drawstart", function(evt) {
+						drawingFeatrue = evt.feature;
+						measrueOverlay = createResultOverlay('resulttip', 'resulttip-content', "<p>result:0</p>");
+					});
+					drawAction.on("drawend", function(evt) {
+						displayMeasureOverlay(measrueOverlay);
+						measrueOverlay.getElement().className = "tooltip-static";
+						drawingFeatrue = null;
+						measrueOverlay = null;
+						measuretooltipOverlay.setPosition(undefined);
+					});
+					map.addInteraction(drawAction);
+				};
+
+				var helptipContent = $('#helptip-content')[0];
+				map.on("pointermove", function(evt) {
+					var pos = evt.coordinate;
+					//console.debug(ol.proj.transform(pos,"EPSG:3857","EPSG:4326"));
+					helptipContent.innerHTML = "<p>click to draw</p>";
+					if(drawingFeatrue) {
+						helptipContent.innerHTML = "<p>clickto finish</p>";
+						displayMeasureOverlay(measuretooltipOverlay);
+					}
+					helpOverlay.setPosition(pos);
+				});
+			})
+		</script>
+	</body>
+
+</html>
